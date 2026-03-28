@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy.orm import Session
 
 from .database import engine, SessionLocal
-from .models import Base, Note
+from .models import Base, Note, Category
 
 # создание базы данных и таблиц по метаданным моделей - только для разработки
 # (если база данных и все необходимые таблицы уже имеются, то метод не создает заново таблицы)
@@ -39,3 +39,12 @@ async def create_note(title: str, content: str, db: Session = Depends(get_db)):
 def get_notes(db: Session = Depends(get_db)):
     notes = db.query(Note).all()
     return notes
+
+
+@app.post("/categories")
+def create_category(name: str, db: Session = Depends(get_db)):
+    category = Category(name=name)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
