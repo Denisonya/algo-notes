@@ -27,8 +27,8 @@ async def root():
 
 
 @app.post("/notes")
-async def create_note(title: str, content: str, db: Session = Depends(get_db)):
-    note = Note(title=title, content=content)
+def create_note(title: str, content: str, category_id: int, db: Session = Depends(get_db)):
+    note = Note(title=title, content=content, category_id=category_id)
     db.add(note)
     db.commit()
     db.refresh(note)
