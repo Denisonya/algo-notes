@@ -33,3 +33,9 @@ async def create_note(title: str, content: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(note)
     return note
+
+
+@app.get("/notes")
+def get_notes(db: Session = Depends(get_db)):
+    notes = db.query(Note).all()
+    return notes
