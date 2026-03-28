@@ -35,7 +35,7 @@ async def root():
 
 
 @app.post("/notes")
-def create_note(title: str, content: str, category_id: int, db: Session = Depends(get_db)):
+async def create_note(title: str, content: str, category_id: int, db: Session = Depends(get_db)):
     """
     Create a new note
     :param title: title of the note
@@ -52,7 +52,7 @@ def create_note(title: str, content: str, category_id: int, db: Session = Depend
 
 
 @app.post("/categories")
-def create_category(name: str, db: Session = Depends(get_db)):
+async def create_category(name: str, db: Session = Depends(get_db)):
     """
     Create a new category
     :param name: name of the category
@@ -67,7 +67,7 @@ def create_category(name: str, db: Session = Depends(get_db)):
 
 
 @app.get("/notes")
-def get_notes(category_id: int = None, db: Session = Depends(get_db)):
+async def get_notes(category_id: int = None, db: Session = Depends(get_db)):
     """
     Get all notes for a category if category_id is provided else all notes
     :param category_id: category id (optional)
@@ -83,7 +83,7 @@ def get_notes(category_id: int = None, db: Session = Depends(get_db)):
 
 
 @app.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
+async def get_categories(db: Session = Depends(get_db)):
     """
     Get all categories
     :return: list of categories
