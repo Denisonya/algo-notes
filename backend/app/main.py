@@ -80,3 +80,12 @@ def get_notes(category_id: int = None, db: Session = Depends(get_db)):
         query = query.filter(Note.category_id == category_id)
 
     return query.all()
+
+
+@app.get("/categories")
+def get_categories(db: Session = Depends(get_db)):
+    """
+    Get all categories
+    :return: list of categories
+    """
+    return db.query(Category).all()
