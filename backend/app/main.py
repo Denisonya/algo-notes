@@ -1,4 +1,7 @@
+import markdown
+
 from fastapi import Depends, FastAPI
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from .database import engine, SessionLocal
@@ -89,3 +92,22 @@ async def get_categories(db: Session = Depends(get_db)):
     :return: list of categories
     """
     return db.query(Category).all()
+
+
+@app.get("/notes/{note_id}/html", response_class=HTMLResponse)
+def get_note_html(note_id: int, db: Session = Depends(get_db)):
+    note = db.query(Note).get(note_id)
+
+    html_content = markdown.markdown(note.content)
+
+    return f"""
+    <html>
+        <head>
+            <title>{note.title}</title>
+        </head>
+        <body>
+            <h1>{note.title}</h1>
+            {html_content}
+        </body>
+    </html>
+    """
