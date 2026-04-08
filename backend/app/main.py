@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
 from .database import engine
+from .database import Base
 from .models import note, category
-from .models.base import Base
 from .routers import notes, categories
 
 # Создание таблиц по метаданным моделей (только для разработки), если все необходимые таблицы уже имеются, то метод не создает таблицы заново
