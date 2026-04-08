@@ -1,52 +1,68 @@
-from typing import Optional
-
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from ..models import Note, Category
-from .. import schemas
+from ..repositories import note_repository, category_repository
+from ..schemas import note as note_schema
+from ..models.note import Note
 
 
-def create_note(db: Session, note_data: schemas.NoteCreate):
+def create_note(db: Session, data: note_schema.NoteCreate) -> Note:
     """
-    Create a new note
-    :param note_data: Pydantic model with note fields (title, content, category_id)
-    :param db: database session
-    :return: created note
+    Create a new note.
+
+    :param db: Database session
+    :param data: Note input data
+    :return: Created Note object
+    :raises HTTPException: If category not found
     """
-    # Проверка существования категории
-    category = db.query(Category).get(note_data.category_id)
+    category = category_repository.get_by_id(db, data.category_id)
+
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    note = Note(**note_data.model_dump())
-    db.add(note)
-    db.commit()
-    db.refresh(note)
-    return note
+    return note_repository.create(db, data.model_dump())
 
 
-def get_notes(db: Session, category_id: Optional[int] = None):
+def get_notes_by_category_id(db: Session, category_id: int) -> list[Note]:
     """
-    Get all notes for a category if category_id is provided else all notes
-    :param category_id: category id (optional)
-    :param db: database session
-    :return: list of notes
+    Retrieve notes by category ID.
+
+    :param db: Database session
+    :param category_id: Category ID
+    :return: List of notes
+    :raises HTTPException: If category not found
     """
-    query = db.query(Note)
-    if category_id:
-        query = query.filter(Note.category_id == category_id)
-    return query.all()
+    # Проверка существования категории
+    category = category_repository.get_by_id(db, category_id)
+
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    return note_repository.get_by_category_id(db, category_id)
 
 
-def get_note_by_id(db: Session, note_id: int):
+def get_all_notes(db: Session) -> list[Note]:
     """
-    Get note by id and return it as rendered HTML page
-    :param note_id: note id
-    :param db: database session
-    :return: HTML representation of the note
+    Retrieve all notes.
+
+    :param db: Database session
+    :return: List of notes
     """
-    note = db.query(Note).get(note_id)
+    return note_repository.get_all(db)
+
+
+def get_note_by_id(db: Session, note_id: int) -> Note:
+    """
+    Get note by its ID.
+
+    :param db: Database session
+    :param note_id: Note ID
+    :return: Note object
+    :raises HTTPException: If note not found
+    """
+    note = note_repository.get_by_id(db, note_id)
+
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
+
     return note

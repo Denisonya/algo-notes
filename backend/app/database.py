@@ -30,8 +30,9 @@ Base = declarative_base()
 # Определяем зависимость, через которую объект сессии БД будет передаваться в функции обработки
 def get_db():
     """
-    Get a database session
-    :return: SQLAlchemy session object
+    Provide a database session.
+
+    :yield: SQLAlchemy Session object
     """
     # Создаем объект сессии БД
     db = SessionLocal()

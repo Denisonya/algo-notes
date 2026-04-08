@@ -1,20 +1,9 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from .database import Base
+from ..database import Base
 
 
 # Делаем связь Category.notes <-> Note.category
-
-# Модель категории, объекты которой будут храниться в БД
-class Category(Base):
-    __tablename__ = "categories"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-
-    notes = relationship("Note", back_populates="category",
-                         cascade="all, delete-orphan")  # связь с моделью Note через ее атрибут category
-
 
 # Модель заметки, объекты которой будут храниться в БД
 class Note(Base):

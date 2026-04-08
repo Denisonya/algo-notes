@@ -1,25 +1,25 @@
 from sqlalchemy.orm import Session
-from ..models import Category
-from .. import schemas
+from ..repositories import category_repository
+from ..schemas import category as category_schema
+from ..models.category import Category
 
 
-def create_category(db: Session, category_data: schemas.CategoryCreate):
+def create_category(db: Session, data: category_schema.CategoryCreate) -> Category:
     """
-    Create a new category
-    :param category_data: Pydantic model with category fields (name)
-    :param db: database session
-    :return: created category
+    Create a new category.
+
+    :param db: Database session
+    :param data: Category input data
+    :return: Created Category object
     """
-    category = Category(name=category_data.name)
-    db.add(category)
-    db.commit()
-    db.refresh(category)
-    return category
+    return category_repository.create(db, data.name)
 
 
-def get_categories(db: Session):
+def get_all_categories(db: Session) -> list[Category]:
     """
-    Get all categories
-    :return: list of categories
+    Retrieve all categories.
+
+    :param db: Database session
+    :return: List of categories
     """
-    return db.query(Category).all()
+    return category_repository.get_all(db)
