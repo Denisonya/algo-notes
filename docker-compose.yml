@@ -3,6 +3,8 @@ services:
     image: algo_backend
     build:
       context: ./backend
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       db:
         condition: service_healthy

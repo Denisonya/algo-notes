@@ -1,15 +1,41 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+import os
 
-# определение строки подключения
-DATABASE_URL = "postgresql://algo_user:algo_password@db:5432/algo_notes"  # db - это имя сервиса из docker-compose (не localhost)
+# Загружаем переменные из .env
+load_dotenv()
 
-# создание движка SqlAlchemy
+# Получаем строку подключения из переменных окружения
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL не найдена в переменных окружения")
+
+# Создание движка SQLAlchemy
 engine = create_engine(DATABASE_URL)
 
-# создание класса сессии базы данных
-SessionLocal = sessionmaker(autoflush=False, autocommit=False,
-                            bind=engine)  # параметр bind привязывает сессию БД к определенному движку, который применяется для установки подключения
+# Создание класса сессии БД
+SessionLocal = sessionmaker(
+    autoflush=False,  # отключение автоматической синхронизации с БД
+    autocommit=False,  # отключение автоматической фиксации изменений (транзакций) с БД
+    bind=engine,
+    # параметр bind привязывает сессию БД к определенному движку, который применяется для установки подключения
+)
 
-# создаем базовый класс для моделей
+# Создаем базовый класс для моделей
 Base = declarative_base()
+
+
+# Определяем зависимость, через которую объект сессии БД будет передаваться в функции обработки
+def get_db():
+    """
+    Get a database session
+    :return: SQLAlchemy session object
+    """
+    # Создаем объект сессии БД
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
