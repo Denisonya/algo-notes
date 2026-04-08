@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from ..models.category import Category
 
 
-def create(db: Session, name: str):
+def create(db: Session, name: str) -> Category:
     """
     Create a new category.
 
@@ -17,22 +17,22 @@ def create(db: Session, name: str):
     return category
 
 
-def get_by_id(db: Session, category_id: int):
+def get_by_id(db: Session, category_id: int) -> Category | None:
     """
     Get category by its ID.
 
     :param db: Database session
-    :param category_id: ID of the category
-    :return: Category object or None if not found
+    :param category_id: Category ID
+    :return: Category object or None
     """
     return db.query(Category).get(category_id)
 
 
-def get_all(db: Session):
+def get_all(db: Session) -> list[Category]:
     """
     Retrieve all categories.
 
     :param db: Database session
-    :return: List of all categories
+    :return: List of categories
     """
     return db.query(Category).all()
