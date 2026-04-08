@@ -13,7 +13,8 @@ class Category(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
 
-    notes = relationship("Note", back_populates="category")  # связь с моделью Note через ее атрибут category
+    notes = relationship("Note", back_populates="category",
+                         cascade="all, delete-orphan")  # связь с моделью Note через ее атрибут category
 
 
 # создаем модель заметки, объекты которой будут храниться в бд
