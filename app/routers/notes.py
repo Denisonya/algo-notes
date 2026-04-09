@@ -1,12 +1,12 @@
-import markdown
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..dependencies.db import get_db
 from ..schemas import note
 from ..services import note_service
+
+from ..utils.markdown import render_markdown
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 
@@ -69,6 +69,6 @@ def get_note_html(note_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     """
     note_obj = note_service.get_note_by_id(db, note_id)
 
-    html_content = markdown.markdown(note_obj.content)
+    html_content = render_markdown(note_obj.content)
 
     return HTMLResponse(status_code=200, content=html_content)

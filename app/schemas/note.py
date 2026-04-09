@@ -4,7 +4,8 @@ from typing import Optional
 from .category import CategoryResponse
 
 
-# Модели для заметок
+# Схемы для заметок
+
 class NoteCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100, description="Заголовок заметки")
     content: str = Field(..., min_length=1, description="Содержание заметки")

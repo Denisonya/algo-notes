@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from ..models.note import Note
+from ..models import Note
 
 
 def create(db: Session, data: dict) -> Note:
@@ -25,7 +25,7 @@ def get_by_category_id(db: Session, category_id: int) -> list[Note]:
     :param category_id: Category ID
     :return: List of notes
     """
-    return db.query(Note).filter(Note.category_id == category_id).all()
+    return db.query(Note).filter(Note.category_id == category_id).all()  # type: ignore
 
 
 def get_by_id(db: Session, note_id: int) -> Note | None:
@@ -46,4 +46,4 @@ def get_all(db: Session) -> list[Note]:
     :param db: Database session
     :return: List of notes
     """
-    return db.query(Note).all()
+    return db.query(Note).all()  # type: ignore

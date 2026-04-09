@@ -1,5 +1,6 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-from ..models.category import Category
+from ..models import Category
 
 
 def create(db: Session, name: str) -> Category:
@@ -25,7 +26,9 @@ def get_by_id(db: Session, category_id: int) -> Category | None:
     :param category_id: Category ID
     :return: Category object or None
     """
-    return db.query(Category).get(category_id)
+    stmt = select(Category).where(Category.id == category_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 def get_all(db: Session) -> list[Category]:
@@ -35,4 +38,6 @@ def get_all(db: Session) -> list[Category]:
     :param db: Database session
     :return: List of categories
     """
-    return db.query(Category).all()
+    stmt = select(Category)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
