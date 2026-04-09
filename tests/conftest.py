@@ -1,22 +1,20 @@
+from typing import Generator
+
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
+from sqlalchemy.orm import sessionmaker, Session
 
-from ..app.database import Base
+from app.models import Base
 
-load_dotenv()
+SQLITE_URL = "sqlite:///./test.db"
 
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
-
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False})
 
 TestingSessionLocal = sessionmaker(bind=engine)
 
 
 @pytest.fixture(scope="function")
-def db():
+def db() -> Generator[Session, None, None]:
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:

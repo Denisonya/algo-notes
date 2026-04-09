@@ -3,7 +3,7 @@ from fastapi import HTTPException
 
 from ..repositories import note_repository, category_repository
 from ..schemas import note as note_schema
-from ..models.note import Note
+from ..models import Note
 
 
 def create_note(db: Session, data: note_schema.NoteCreate) -> Note:

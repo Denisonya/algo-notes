@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..dependencies.db import get_db
 from ..schemas import category
 from ..services import category_service
 

@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field
 
 
-# Модели для категорий
+# Схемы для категорий
+
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Название категории")
 
