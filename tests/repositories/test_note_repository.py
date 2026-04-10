@@ -1,67 +1,54 @@
-from app.repositories import note_repository, category_repository
+from app.models import Note, Category
+from app.repositories.note_repository import (
+    create_note,
+    get_note_by_id,
+    get_notes_by_category_id,
+)
 
 
 def test_create_note(db):
-    category = category_repository.create(db, "Work")
+    category = Category(name="Graphs")
+    db.add(category)
+    db.commit()
 
-    note_data = {
-        "title": "Test",
-        "content": "Hello",
-        "category_id": category.id
-    }
+    note = Note(
+        title="DFS",
+        content="Test",
+        category_id=category.id
+    )
 
-    note = note_repository.create(db, note_data)
+    create_note(db, note)
+    db.commit()
 
     assert note.id is not None
-    assert note.title == "Test"
-
-
-def test_get_all_notes(db):
-    category = category_repository.create(db, "Work")
-
-    note_repository.create(db, {
-        "title": "Test1",
-        "content": "Hello",
-        "category_id": category.id
-    })
-
-    notes = note_repository.get_all(db)
-
-    assert len(notes) == 1
-
-
-def test_filter_notes_by_category(db):
-    cat1 = category_repository.create(db, "Work")
-    cat2 = category_repository.create(db, "Personal")
-
-    note_repository.create(db, {
-        "title": "Work note",
-        "content": "Hello",
-        "category_id": cat1.id
-    })
-
-    note_repository.create(db, {
-        "title": "Personal note",
-        "content": "Hi",
-        "category_id": cat2.id
-    })
-
-    notes = note_repository.get_all(db)
-
-    assert len(notes) == 1
-    assert notes[0].title == "Work note"
 
 
 def test_get_note_by_id(db):
-    category = category_repository.create(db, "Work")
+    category = Category(name="Graphs")
+    db.add(category)
+    db.commit()
 
-    note = note_repository.create(db, {
-        "title": "Test",
-        "content": "Hello",
-        "category_id": category.id
-    })
+    note = Note(title="DFS", content="Test", category_id=category.id)
+    db.add(note)
+    db.commit()
 
-    found = note_repository.get_by_id(db, note.id)
+    result = get_note_by_id(db, note.id)
 
-    assert found is not None
-    assert found.id == note.id
+    assert result is not None
+    assert result.title == "DFS"
+
+
+def test_get_notes_by_category_id(db):
+    category = Category(name="Graphs")
+    db.add(category)
+    db.commit()
+
+    db.add_all([
+        Note(title="DFS", content="Test1", category_id=category.id),
+        Note(title="BFS", content="Test2", category_id=category.id),
+    ])
+    db.commit()
+
+    notes = get_notes_by_category_id(db, category.id)
+
+    assert len(notes) == 2

@@ -1,26 +1,50 @@
-from app.repositories import category_repository
+from app.models import Category
+from app.repositories.category_repository import (
+    create_category,
+    get_category_by_id,
+    get_all_categories,
+    delete_category,
+)
 
 
 def test_create_category(db):
-    created = category_repository.create(db, "Graphs")
+    category = Category(name="Graphs")
 
-    assert created.id is not None
-    assert created.name == "Graphs"
+    create_category(db, category)
+    db.commit()
 
-
-def test_get_all_categories(db):
-    category_repository.create(db, "Graphs")
-    category_repository.create(db, "Sorting")
-
-    created = category_repository.get_all(db)
-
-    assert len(created) == 2
+    assert category.id is not None
 
 
 def test_get_category_by_id(db):
-    created = category_repository.create(db, "Graphs")
+    category = Category(name="Graphs")
+    db.add(category)
+    db.commit()
 
-    fetched = category_repository.get_by_id(db, created.id)
+    result = get_category_by_id(db, category.id)
 
-    assert fetched is not None
-    assert fetched.id == created.id
+    assert result is not None
+    assert result.name == "Graphs"
+
+
+def test_get_all_categories(db):
+    db.add_all([
+        Category(name="Graphs"),
+        Category(name="Sorting"),
+    ])
+    db.commit()
+
+    categories = get_all_categories(db)
+
+    assert len(categories) == 2
+
+
+def test_delete_category(db):
+    category = Category(name="Graphs")
+    db.add(category)
+    db.commit()
+
+    delete_category(db, category)
+    db.commit()
+
+    assert get_category_by_id(db, category.id) is None
