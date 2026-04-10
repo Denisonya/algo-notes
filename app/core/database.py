@@ -3,8 +3,10 @@ from sqlalchemy.orm import sessionmaker
 
 from .settings import settings
 
+DATABASE_URL = settings.database_url
+
 # Создание движка SQLAlchemy
-engine = create_engine(settings.postgres_url)
+engine = create_engine(DATABASE_URL)
 
 # Создание класса сессии БД
 SessionLocal = sessionmaker(
