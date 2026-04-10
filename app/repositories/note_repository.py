@@ -1,34 +1,22 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
 from ..models import Note
 
 
-def create(db: Session, data: dict) -> Note:
+def get_all_notes(db: Session) -> list[Note]:
     """
-    Create a new note.
+    Retrieve all notes ordered by ID.
 
     :param db: Database session
-    :param data: Dictionary with note fields
-    :return: Created Note object
+    :return: List of Note objects
     """
-    note = Note(**data)
-    db.add(note)
-    db.commit()
-    db.refresh(note)
-    return note
+    stmt = select(Note).order_by(Note.id)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
 
 
-def get_by_category_id(db: Session, category_id: int) -> list[Note]:
-    """
-    Get notes by category ID.
-
-    :param db: Database session
-    :param category_id: Category ID
-    :return: List of notes
-    """
-    return db.query(Note).filter(Note.category_id == category_id).all()  # type: ignore
-
-
-def get_by_id(db: Session, note_id: int) -> Note | None:
+def get_note_by_id(db: Session, note_id: int) -> Note | None:
     """
     Get note by its ID.
 
@@ -36,14 +24,56 @@ def get_by_id(db: Session, note_id: int) -> Note | None:
     :param note_id: Note ID
     :return: Note object or None
     """
-    return db.query(Note).get(note_id)
+    stmt = select(Note).where(Note.id == note_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
-def get_all(db: Session) -> list[Note]:
+def get_notes_by_category_id(db: Session, category_id: int) -> list[Note]:
     """
-    Retrieve all notes.
+    Retrieve all notes for a specific category.
 
     :param db: Database session
-    :return: List of notes
+    :param category_id: Category ID
+    :return: List of Note objects
     """
-    return db.query(Note).all()  # type: ignore
+    stmt = select(Note).where(Note.category_id == category_id).order_by(Note.id)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def create_note(db: Session, note: Note) -> Note:
+    """
+    Add a new note to the session and flush changes.
+
+    :param db: Database session
+    :param note: Note object
+    :return: Note object (not committed)
+    """
+    db.add(note)
+    db.flush()
+    return note
+
+
+def update_note(db: Session, note: Note) -> Note:
+    """
+    Flush updated note to the database.
+
+    :param db: Database session
+    :param note: Note object
+    :return: Updated Note object
+    """
+    db.flush()
+    return note
+
+
+def delete_note(db: Session, note: Note) -> Note:
+    """
+    Delete note from session.
+
+    :param db: Database session
+    :param note: Note object
+    :return: Deleted Note object
+    """
+    db.delete(note)
+    return note

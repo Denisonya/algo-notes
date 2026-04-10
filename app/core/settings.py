@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     postgres_password: str
 
     @property
-    def postgres_url(self) -> str:
+    def database_url(self) -> str:
         """
         Build PostgreSQL connection URL.
 
