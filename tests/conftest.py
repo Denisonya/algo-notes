@@ -6,17 +6,19 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from app.models import Base
 
-SQLITE_URL = "sqlite:///./test.db"
+TEST_DATABASE_URL = "sqlite+pysqlite:///:memory:"
 
-engine = create_engine(SQLITE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(TEST_DATABASE_URL, echo=False)
 
-TestingSessionLocal = sessionmaker(bind=engine)
+TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 @pytest.fixture(scope="function")
 def db() -> Generator[Session, None, None]:
     Base.metadata.create_all(bind=engine)
+
     db = TestingSessionLocal()
+
     try:
         yield db
     finally:
