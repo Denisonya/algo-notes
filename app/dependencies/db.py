@@ -12,8 +12,8 @@ def get_db() -> Generator[Session, None, None]:
     :yield: SQLAlchemy Session object
     """
     # Создаем объект сессии БД
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with SessionLocal() as db:
+        try:
+            yield db
+        finally:
+            db.close()

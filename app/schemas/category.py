@@ -1,15 +1,55 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-# Схемы для категорий
+class CategoryBase(BaseModel):
+    """
+    Base schema for Category.
+    """
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Category name"
+    )
 
-class CategoryCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100, description="Название категории")
+    model_config = ConfigDict(
+        from_attributes=True  # ORM mode (Pydantic преобразует SQLAlchemy‑объекты в JSON‑совместимые словари)
+    )
 
 
-class CategoryResponse(BaseModel):
+class CategoryCreate(CategoryBase):
+    """
+    Schema for creating a category.
+    Inherits all fields from CategoryBase.
+    """
+    pass
+
+
+class CategoryUpdate(CategoryBase):
+    """
+    Schema for updating a category.
+    Requires all fields to be present.
+    """
+    pass
+
+
+class CategoryPatch(BaseModel):
+    """
+    Schema for partial updating a category.
+    All fields are optional.
+    """
+    name: str | None = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Optional category name"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryRead(CategoryBase):
+    """
+    Schema for reading category data.
+    """
     id: int
-    name: str
-
-    class Config:
-        from_attributes = True  # режим ORM, чтобы Pydantic мог преобразовывать SQLAlchemy‑объекты в JSON‑совместимые словари
