@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+COPY tests ./tests
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 RUN chown -R appuser:appgroup /app
