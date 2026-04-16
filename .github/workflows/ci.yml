@@ -57,7 +57,7 @@ jobs:
           exit 1
 
       - name: Run tests inside backend container
-        run: docker compose exec -T backend pytest
+        run: docker compose exec -T backend pytest /app/tests
 
       - name: Show logs on failure
         if: failure()
