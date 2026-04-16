@@ -21,6 +21,16 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v4
 
+      - name: Create .env from environment variables
+        run: |
+          cat <<EOF > .env
+          POSTGRES_HOST=${POSTGRES_HOST}
+          POSTGRES_PORT=${POSTGRES_PORT}
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          EOF
+
       - name: Build containers
         run: docker compose build
 
