@@ -191,16 +191,16 @@ http://localhost:8000/redoc
 docker compose up -d
 ```
 
-## Остановить контейнеры
-
-```bash
-docker compose down
-```
-
 ## Пересобрать проект
 
 ```bash
 docker compose up --build
+```
+
+## Остановить контейнеры
+
+```bash
+docker compose down
 ```
 
 ## Удалить контейнеры + volumes
@@ -213,12 +213,6 @@ docker compose down -v
 
 ```bash
 docker compose logs -f backend
-```
-
-## Подключиться к PostgreSQL контейнеру
-
-```bash
-docker compose exec db psql -U algo_user -d algo_notes
 ```
 
 ---
