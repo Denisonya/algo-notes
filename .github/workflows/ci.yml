@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    env:
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Create .env from environment variables
+        run: |
+          cat <<EOF > .env
+          POSTGRES_HOST=${POSTGRES_HOST}
+          POSTGRES_PORT=${POSTGRES_PORT}
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          EOF
+
+      - name: Build containers
+        run: docker compose build
+
+      - name: Start containers
+        run: docker compose up -d
+
+      - name: Wait for backend startup
+        run: |
+          max_attempts=30
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            if curl -f http://localhost:8000/docs; then
+              echo "Backend is ready"
+              exit 0
+            fi
+
+            echo "Waiting for backend ($attempt/$max_attempts)"
+            sleep 3
+            attempt=$((attempt + 1))
+          done
+
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Run tests inside backend container
+        run: docker compose exec -T backend pytest /app/tests
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs backend
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
