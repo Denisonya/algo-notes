@@ -14,6 +14,8 @@ from ..repositories.note_repository import (
     delete_note,
 )
 
+from ..repositories.category_repository import get_category_by_id
+
 
 def get_all_notes_service(db: Session) -> list[Note]:
     """
@@ -55,12 +57,17 @@ def get_note_by_id_service(note_id: int, db: Session) -> Note:
 
 def create_note_service(data: NoteCreate, db: Session) -> Note:
     """
-    Create a new note.
+    Create a new note with a given category (if this category exists).
 
     :param data: NoteCreate schema
     :param db: Database session
     :return: Created Note object
     """
+    category = get_category_by_id(db, data.category_id)
+
+    if category is None:
+        raise NotFoundError("Category not found")
+
     note = Note(**data.model_dump())
 
     try:
@@ -132,13 +139,13 @@ def patch_note_service(note_id: int, data: NotePatch, db: Session) -> Note:
         raise
 
 
-def delete_note_service(note_id: int, db: Session) -> Note:
+def delete_note_service(note_id: int, db: Session) -> None:
     """
     Delete note.
 
     :param note_id: Note ID
     :param db: Database session
-    :return: Deleted Note object
+    :return: None
     :raises NotFoundError: If note not found
     """
     note = get_note_by_id(db, note_id)
@@ -149,7 +156,6 @@ def delete_note_service(note_id: int, db: Session) -> Note:
     try:
         delete_note(db, note)
         db.commit()
-        return note
     except Exception:
         db.rollback()
         raise

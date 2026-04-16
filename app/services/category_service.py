@@ -123,13 +123,13 @@ def patch_category_service(category_id: int, data: CategoryPatch, db: Session) -
         raise
 
 
-def delete_category_service(category_id: int, db: Session) -> Category:
+def delete_category_service(category_id: int, db: Session) -> None:
     """
     Delete category.
 
     :param category_id: Category ID
     :param db: Database session
-    :return: Deleted Category object
+    :return: None
     :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
@@ -140,7 +140,6 @@ def delete_category_service(category_id: int, db: Session) -> Category:
     try:
         delete_category(db, category)
         db.commit()
-        return category
     except Exception:
         db.rollback()
         raise

@@ -6,5 +6,5 @@ def apply_updates(instance, data: dict):
     :param data: dict with fields to update
     """
     for field, value in data.items():
-        if value is not None and hasattr(instance, field):
+        if hasattr(instance, field):
             setattr(instance, field, value)
