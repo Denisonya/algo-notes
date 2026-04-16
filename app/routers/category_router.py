@@ -57,9 +57,11 @@ def patch_category(category_id: int, data: CategoryPatch, db: Session = Depends(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
 
 
-@router.delete("/{category_id}", response_model=CategoryRead)
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: int, db: Session = Depends(get_db)):
     try:
-        return delete_category_service(category_id, db)
+        delete_category_service(category_id, db)
     except NotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    except SQLAlchemyError:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB error")

@@ -66,9 +66,11 @@ def patch_note(note_id: int, data: NotePatch, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
 
 
-@router.delete("/{note_id}", response_model=NoteRead)
+@router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_note(note_id: int, db: Session = Depends(get_db)):
     try:
-        return delete_note_service(note_id, db)
+        delete_note_service(note_id, db)
     except NotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    except SQLAlchemyError:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB error")
