@@ -10,6 +10,13 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    env:
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
@@ -37,7 +44,6 @@ jobs:
           done
 
           echo "Backend failed to start"
-          docker compose logs backend
           exit 1
 
       - name: Run tests inside backend container
