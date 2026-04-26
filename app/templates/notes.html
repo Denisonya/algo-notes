@@ -1,54 +1,54 @@
 {% extends "base.html" %}
-
 {% block title %}Заметки{% endblock %}
 
 {% block content %}
-<h2>Мои заметки</h2>
-
-{% if error %}
-<p style="color:red;">{{ error }}</p>
-{% endif %}
+<h2>Заметки</h2>
 
 <form method="post">
-    <p>
-        <input type="text" name="title" placeholder="Заголовок" required>
-    </p>
+    <p><input name="title" placeholder="Заголовок" required></p>
 
     <p>
         <textarea
             name="content"
-            placeholder="Текст заметки"
             rows="5"
             cols="60"
+            placeholder="Текст"
             required
         ></textarea>
     </p>
 
     <p>
-        <select name="category_id" required>
+        <select name="category_id">
             {% for category in categories %}
-                <option value="{{ category.id }}">
-                    {{ category.name }}
-                </option>
+            <option value="{{ category.id }}">
+                {{ category.name }}
+            </option>
             {% endfor %}
         </select>
     </p>
 
-    <button type="submit">Создать заметку</button>
+    <button type="submit">Создать</button>
 </form>
 
 <hr>
 
-{% if notes %}
-    {% for note in notes %}
-        <div class="card">
-            <h3>{{ note.title }}</h3>
-            <p>{{ note.content }}</p>
-            <small>Категория: {{ note.category.name }}</small>
-        </div>
-    {% endfor %}
-{% else %}
-    <p>Заметок пока нет.</p>
-{% endif %}
+{% for note in notes %}
+<div class="card">
+    <h3>{{ note.title }}</h3>
+    <p>{{ note.content }}</p>
+    <small>{{ note.category.name }}</small>
 
+    <div style="margin-top:10px;">
+        <a href="/notes/{{ note.id }}/edit">✏️ Изменить</a>
+
+        <form
+            action="/notes/{{ note.id }}/delete"
+            method="post"
+            style="display:inline;"
+        >
+            <button type="submit">🗑 Удалить</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
