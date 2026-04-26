@@ -1,36 +1,35 @@
 {% extends "base.html" %}
-
 {% block title %}Категории{% endblock %}
 
 {% block content %}
-<h2>Мои категории</h2>
+<h2>Категории</h2>
 
 {% if error %}
 <p style="color:red;">{{ error }}</p>
 {% endif %}
 
 <form method="post">
-    <p>
-        <input
-            type="text"
-            name="name"
-            placeholder="Название категории"
-            required
-        >
-        <button type="submit">Добавить</button>
-    </p>
+    <input name="name" placeholder="Новая категория" required>
+    <button type="submit">Добавить</button>
 </form>
 
 <hr>
 
-{% if categories %}
-    {% for category in categories %}
-        <div class="card">
-            <strong>{{ category.id }}</strong> — {{ category.name }}
-        </div>
-    {% endfor %}
-{% else %}
-    <p>Категорий пока нет.</p>
-{% endif %}
+{% for category in categories %}
+<div class="card">
+    <strong>{{ category.name }}</strong>
 
+    <div style="margin-top:10px;">
+        <a href="/categories/{{ category.id }}/edit">✏️ Изменить</a>
+
+        <form
+            action="/categories/{{ category.id }}/delete"
+            method="post"
+            style="display:inline;"
+        >
+            <button type="submit">🗑 Удалить</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
