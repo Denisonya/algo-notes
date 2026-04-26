@@ -10,6 +10,8 @@ from app.services.auth_service import (
     register_user_service,
     login_user_service
 )
+from app.repositories.category_repository import get_all_categories_by_user
+from app.repositories.user_repository import get_user_by_username
 from app.core.exceptions import (
     AlreadyExistsError,
     NotFoundError
@@ -21,9 +23,6 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 def get_current_username_from_cookie(request: Request) -> str | None:
-    """
-    Read JWT token from cookie and extract username.
-    """
     token = request.cookies.get("access_token")
 
     if not token:
@@ -36,7 +35,6 @@ def get_current_username_from_cookie(request: Request) -> str | None:
             algorithms=[settings.jwt_algorithm]
         )
         return payload.get("sub")
-
     except JWTError:
         return None
 
@@ -80,11 +78,7 @@ def register_submit(
             UserCreate(username=username, password=password),
             db
         )
-
-        return RedirectResponse(
-            url="/login",
-            status_code=303
-        )
+        return RedirectResponse(url="/login", status_code=303)
 
     except AlreadyExistsError as e:
         return templates.TemplateResponse(
@@ -153,10 +147,7 @@ def dashboard(request: Request):
     username = get_current_username_from_cookie(request)
 
     if not username:
-        return RedirectResponse(
-            url="/login",
-            status_code=303
-        )
+        return RedirectResponse(url="/login", status_code=303)
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -167,15 +158,31 @@ def dashboard(request: Request):
     )
 
 
-@router.get("/logout")
-def logout():
-    """
-    Logout user and remove cookie.
-    """
-    response = RedirectResponse(
-        url="/",
-        status_code=303
+@router.get("/categories", response_class=HTMLResponse)
+def categories_page(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    username = get_current_username_from_cookie(request)
+
+    if not username:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user = get_user_by_username(db, username)
+    categories = get_all_categories_by_user(db, user.id)
+
+    return templates.TemplateResponse(
+        "categories.html",
+        {
+            "request": request,
+            "username": username,
+            "categories": categories
+        }
     )
 
+
+@router.get("/logout")
+def logout():
+    response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("access_token")
     return response
