@@ -1,4 +1,4 @@
-def apply_updates(instance, data: dict):
+def apply_updates(instance: object, data: dict) -> None:
     """
     Apply partial updates to SQLAlchemy model instance.
 

@@ -16,6 +16,23 @@ def get_all_notes(db: Session) -> list[Note]:
     return result.scalars().all()  # type: ignore
 
 
+def get_all_notes_by_user(db: Session, user_id: int) -> list[Note]:
+    """
+    Retrieve all notes for a specific user.
+
+    :param db: Database session
+    :param user_id: User ID
+    :return: List of Note objects
+    """
+    stmt = (
+        select(Note)
+        .where(Note.user_id == user_id)
+        .order_by(Note.id)
+    )
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
 def get_note_by_id(db: Session, note_id: int) -> Note | None:
     """
     Get note by its ID.
@@ -67,13 +84,12 @@ def update_note(db: Session, note: Note) -> Note:
     return note
 
 
-def delete_note(db: Session, note: Note) -> Note:
+def delete_note(db: Session, note: Note) -> None:
     """
     Delete note from session.
 
     :param db: Database session
     :param note: Note object
-    :return: Deleted Note object
+    :return: None
     """
     db.delete(note)
-    return note

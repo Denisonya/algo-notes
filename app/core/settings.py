@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     postgres_user: str
     postgres_password: str
 
+    jwt_secret: str
+    jwt_expire_minutes: int
+    jwt_algorithm: str
+
     @property
     def database_url(self) -> str:
         """
