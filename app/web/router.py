@@ -5,15 +5,22 @@ from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
 from app.dependencies.db import get_db
+
 from app.schemas.user import UserCreate, UserLogin
 from app.schemas.category import CategoryCreate
+from app.schemas.note import NoteCreate
+
 from app.services.auth_service import (
     register_user_service,
     login_user_service
 )
 from app.services.category_service import create_category_service
+from app.services.note_service import create_note_service
+
 from app.repositories.category_repository import get_all_categories_by_user
+from app.repositories.note_repository import get_all_notes_by_user
 from app.repositories.user_repository import get_user_by_username
+
 from app.core.exceptions import (
     AlreadyExistsError,
     NotFoundError
@@ -198,10 +205,7 @@ def create_category_page(
             db,
             user
         )
-        return RedirectResponse(
-            url="/categories",
-            status_code=303
-        )
+        return RedirectResponse(url="/categories", status_code=303)
 
     except AlreadyExistsError as e:
         categories = get_all_categories_by_user(db, user.id)
@@ -211,6 +215,70 @@ def create_category_page(
             {
                 "request": request,
                 "username": user.username,
+                "categories": categories,
+                "error": str(e)
+            }
+        )
+
+
+@router.get("/notes", response_class=HTMLResponse)
+def notes_page(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    user, redirect = require_user(request, db)
+    if redirect:
+        return redirect
+
+    notes = get_all_notes_by_user(db, user.id)
+    categories = get_all_categories_by_user(db, user.id)
+
+    return templates.TemplateResponse(
+        "notes.html",
+        {
+            "request": request,
+            "username": user.username,
+            "notes": notes,
+            "categories": categories,
+            "error": None
+        }
+    )
+
+
+@router.post("/notes")
+def create_note_page(
+    request: Request,
+    title: str = Form(...),
+    content: str = Form(...),
+    category_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    user, redirect = require_user(request, db)
+    if redirect:
+        return redirect
+
+    try:
+        create_note_service(
+            NoteCreate(
+                title=title,
+                content=content,
+                category_id=category_id
+            ),
+            db,
+            user
+        )
+        return RedirectResponse(url="/notes", status_code=303)
+
+    except Exception as e:
+        notes = get_all_notes_by_user(db, user.id)
+        categories = get_all_categories_by_user(db, user.id)
+
+        return templates.TemplateResponse(
+            "notes.html",
+            {
+                "request": request,
+                "username": user.username,
+                "notes": notes,
                 "categories": categories,
                 "error": str(e)
             }
