@@ -6,9 +6,9 @@ from ..core.exceptions import NotFoundError, AlreadyExistsError
 from ..utils.common import apply_updates
 
 from ..repositories.category_repository import (
-    get_all_categories,
+    get_all_categories_by_user,
     get_category_by_id,
-    get_category_by_name,
+    get_category_by_name_for_user,
     create_category,
     update_category,
     delete_category,
@@ -23,8 +23,7 @@ def get_all_categories_service(db: Session, user: User) -> list[Category]:
     :param user: Current authenticated user
     :return: List of Category objects
     """
-    all_categories = get_all_categories(db)
-    return [c for c in all_categories if c.user_id == user.id]
+    return get_all_categories_by_user(db, user.id)
 
 
 def get_category_by_id_service(category_id: int, db: Session, user: User) -> Category:
@@ -35,7 +34,6 @@ def get_category_by_id_service(category_id: int, db: Session, user: User) -> Cat
     :param db: Database session
     :param user: Current authenticated user
     :return: Category object
-    :raises NotFoundError: If category not found or not owned by user
     """
     category = get_category_by_id(db, category_id)
 
@@ -53,9 +51,8 @@ def create_category_service(data: CategoryCreate, db: Session, user: User) -> Ca
     :param db: Database session
     :param user: Current authenticated user
     :return: Created Category object
-    :raises AlreadyExistsError: If category already exists
     """
-    if get_category_by_name(db, data.name):
+    if get_category_by_name_for_user(db, data.name, user.id):
         raise AlreadyExistsError("Category already exists")
 
     category = Category(
@@ -82,7 +79,6 @@ def update_category_service(category_id: int, data: CategoryUpdate, db: Session,
     :param db: Database session
     :param user: Current authenticated user
     :return: Updated Category object
-    :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 
@@ -111,7 +107,6 @@ def patch_category_service(category_id: int, data: CategoryPatch, db: Session, u
     :param db: Database session
     :param user: Current authenticated user
     :return: Updated Category object
-    :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 
@@ -120,11 +115,9 @@ def patch_category_service(category_id: int, data: CategoryPatch, db: Session, u
 
     try:
         apply_updates(category, data.model_dump(exclude_unset=True))
-
         update_category(db, category)
         db.commit()
         db.refresh(category)
-
         return category
     except Exception:
         db.rollback()
@@ -139,7 +132,6 @@ def delete_category_service(category_id: int, db: Session, user: User) -> None:
     :param db: Database session
     :param user: Current authenticated user
     :return: None
-    :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 

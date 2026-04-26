@@ -1,24 +1,42 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class UserCreate(BaseModel):
+class UserBase(BaseModel):
+    """
+    Base schema for User.
+
+    Contains shared fields used across user schemas.
+    """
+    username: str
+
+
+class UserCreate(UserBase):
     """
     Schema for user registration.
 
-    Used to create a new user account.
+    Extends UserBase with password field.
     """
-    username: str
     password: str
 
 
-class UserLogin(BaseModel):
+class UserLogin(UserBase):
     """
     Schema for user authentication.
 
     Used to log in and receive JWT token.
     """
-    username: str
     password: str
+
+
+class UserRead(UserBase):
+    """
+    Schema for user authentication.
+
+    Used to log in and receive JWT token.
+    """
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
