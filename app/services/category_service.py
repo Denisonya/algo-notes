@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from ..models import Category
+from ..models import Category, User
 from ..schemas.category import CategoryCreate, CategoryUpdate, CategoryPatch
 from ..core.exceptions import NotFoundError, AlreadyExistsError
 from ..utils.common import apply_updates
@@ -15,46 +15,53 @@ from ..repositories.category_repository import (
 )
 
 
-def get_all_categories_service(db: Session) -> list[Category]:
+def get_all_categories_service(db: Session, user: User) -> list[Category]:
     """
-    Retrieve all categories.
+    Retrieve all categories belonging to current user.
 
     :param db: Database session
+    :param user: Current authenticated user
     :return: List of Category objects
     """
-    return get_all_categories(db)
+    all_categories = get_all_categories(db)
+    return [c for c in all_categories if c.user_id == user.id]
 
 
-def get_category_by_id_service(category_id: int, db: Session) -> Category:
+def get_category_by_id_service(category_id: int, db: Session, user: User) -> Category:
     """
     Retrieve category by ID.
 
     :param category_id: Category ID
     :param db: Database session
+    :param user: Current authenticated user
     :return: Category object
-    :raises NotFoundError: If category not found
+    :raises NotFoundError: If category not found or not owned by user
     """
     category = get_category_by_id(db, category_id)
 
-    if category is None:
+    if category is None or category.user_id != user.id:
         raise NotFoundError("Category not found")
 
     return category
 
 
-def create_category_service(data: CategoryCreate, db: Session) -> Category:
+def create_category_service(data: CategoryCreate, db: Session, user: User) -> Category:
     """
     Create a new category.
 
     :param data: CategoryCreate schema
     :param db: Database session
+    :param user: Current authenticated user
     :return: Created Category object
     :raises AlreadyExistsError: If category already exists
     """
     if get_category_by_name(db, data.name):
         raise AlreadyExistsError("Category already exists")
 
-    category = Category(**data.model_dump())
+    category = Category(
+        **data.model_dump(),
+        user_id=user.id
+    )
 
     try:
         create_category(db, category)
@@ -66,19 +73,20 @@ def create_category_service(data: CategoryCreate, db: Session) -> Category:
         raise
 
 
-def update_category_service(category_id: int, data: CategoryUpdate, db: Session) -> Category:
+def update_category_service(category_id: int, data: CategoryUpdate, db: Session, user: User) -> Category:
     """
     Update category.
 
     :param category_id: Category ID
     :param data: CategoryUpdate schema
     :param db: Database session
+    :param user: Current authenticated user
     :return: Updated Category object
     :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 
-    if category is None:
+    if category is None or category.user_id != user.id:
         raise NotFoundError("Category not found")
 
     try:
@@ -94,24 +102,24 @@ def update_category_service(category_id: int, data: CategoryUpdate, db: Session)
         raise
 
 
-def patch_category_service(category_id: int, data: CategoryPatch, db: Session) -> Category:
+def patch_category_service(category_id: int, data: CategoryPatch, db: Session, user: User) -> Category:
     """
-    Partial update category.
+    Partially update category.
 
     :param category_id: Category ID
     :param data: CategoryPatch schema
     :param db: Database session
-    :return: Partial updated Category object
+    :param user: Current authenticated user
+    :return: Updated Category object
     :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 
-    if category is None:
+    if category is None or category.user_id != user.id:
         raise NotFoundError("Category not found")
 
     try:
-        apply_updates(category, data.model_dump(
-            exclude_unset=True))  # exclude_unset - передаем словарь только с измененными полями (поля, которые не были переданы, остаются прежними)
+        apply_updates(category, data.model_dump(exclude_unset=True))
 
         update_category(db, category)
         db.commit()
@@ -123,18 +131,19 @@ def patch_category_service(category_id: int, data: CategoryPatch, db: Session) -
         raise
 
 
-def delete_category_service(category_id: int, db: Session) -> None:
+def delete_category_service(category_id: int, db: Session, user: User) -> None:
     """
     Delete category.
 
     :param category_id: Category ID
     :param db: Database session
+    :param user: Current authenticated user
     :return: None
     :raises NotFoundError: If category not found
     """
     category = get_category_by_id(db, category_id)
 
-    if category is None:
+    if category is None or category.user_id != user.id:
         raise NotFoundError("Category not found")
 
     try:
