@@ -5,6 +5,24 @@
 {% block content %}
 <h2>Мои категории</h2>
 
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+    <p>
+        <input
+            type="text"
+            name="name"
+            placeholder="Название категории"
+            required
+        >
+        <button type="submit">Добавить</button>
+    </p>
+</form>
+
+<hr>
+
 {% if categories %}
     {% for category in categories %}
         <div class="card">
