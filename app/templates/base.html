@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AlgoNotes{% endblock %}</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="container">
+        <h1 class="logo">AlgoNotes</h1>
+
+        <nav>
+            <a href="/">Главная</a>
+            <a href="/login">Вход</a>
+            <a href="/register">Регистрация</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container">
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

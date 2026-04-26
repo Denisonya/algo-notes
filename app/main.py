@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.core.database import engine
 from app.models import Base
@@ -20,3 +21,6 @@ app.include_router(note_router.router)
 app.include_router(category_router.router)
 app.include_router(auth_router.router)
 app.include_router(web_router.router)
+
+# Подключение статических файлов
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
