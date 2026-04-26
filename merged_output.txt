@@ -1,0 +1,2201 @@
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/.dockerignore =====
+
+# Git
+.git
+.github
+
+# Python
+__pycache__/
+*.pyc
+
+# venv
+.venv/
+
+# env
+.env
+!.env.example
+
+# IDE
+.idea/
+
+# macOS
+.DS_Store
+
+# logs
+*.log
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/.env =====
+
+# переменные для подключения к БД
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=algo_notes
+POSTGRES_USER=algo_user
+POSTGRES_PASSWORD=algo_password
+
+# переменные для JWT
+JWT_SECRET=algo_secret
+JWT_EXPIRE_MINUTES=60
+JWT_ALGORITHM=HS256
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/.gitignore =====
+
+# Python
+__pycache__/
+*.pyc
+
+# venv
+.venv/
+
+# env
+.env
+!.env.example
+
+# IDE
+.idea/
+
+# macOS
+.DS_Store
+
+# logs
+*.log
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/Dockerfile =====
+
+FROM python:3.12-alpine
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+
+COPY tests ./tests
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/auth/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/auth/dependencies.py =====
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
+from sqlalchemy.orm import Session
+
+from app.core.settings import settings  # FIX: был относительный импорт
+from app.dependencies.db import get_db
+from app.repositories.user_repository import get_user_by_username
+from app.models.user import User
+
+# Схема авторизации Bearer Token
+# Ожидает заголовок: Authorization: Bearer <token>
+security = HTTPBearer()
+
+
+def get_current_username(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> str:
+    """
+    Get current username from JWT token.
+
+    Extracts token from Authorization header,
+    decodes it and returns username from payload.
+
+    :param credentials: Bearer token credentials
+    :return: Username from token
+    :raises HTTPException: If token is invalid
+    """
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm]
+        )
+
+        username = payload.get("sub")
+
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload"
+            )
+
+        return username
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+
+def get_current_user(
+        username: str = Depends(get_current_username),
+        db: Session = Depends(get_db)
+) -> User:
+    """
+    Get current authenticated user from database.
+
+    :param username: Username extracted from token
+    :param db: Database session
+    :return: User model instance
+    """
+    user = get_user_by_username(db, username)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    return user
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/auth/security.py =====
+
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+from passlib.context import CryptContext
+
+from app.core.settings import settings
+
+# Создаем объект для работы с хешированием паролей, используем алгоритм bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash password using bcrypt.
+
+    :param password: Plain password
+    :return: Hashed password
+    """
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """
+    Verify password.
+
+    :param password: Plain password
+    :param hashed: Hashed password
+    :return: True if valid
+    """
+    return pwd_context.verify(password, hashed)
+
+
+def create_access_token(data: dict) -> str:
+    """
+    Create JWT token.
+
+    :param data: Payload data
+    :return: JWT token
+    """
+    # Копируем payload, чтобы не изменять исходный словарь
+    payload = data.copy()
+
+    # Время истечения токена
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.jwt_expire_minutes
+    )
+
+    # Добавляем в payload стандартное поле expiration time
+    payload.update({"exp": expire})
+
+    # Кодируем payload в JWT токен
+    return jwt.encode(
+        payload,
+        settings.jwt_secret,  # секретный ключ подписи
+        algorithm=settings.jwt_algorithm  # алгоритм шифрования
+    )
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/core/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/core/database.py =====
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from .settings import settings
+
+DATABASE_URL = settings.database_url
+
+# Создание движка SQLAlchemy
+engine = create_engine(DATABASE_URL)
+
+# Создание класса сессии БД
+SessionLocal = sessionmaker(
+    autoflush=False,  # отключение автоматической синхронизации с БД
+    autocommit=False,  # отключение автоматической фиксации изменений (транзакций) с БД
+    bind=engine,  # привязка сессии БД к движку, который применяется для установки подключения
+)
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/core/exceptions.py =====
+
+class NotFoundError(Exception):
+    """
+    Entity is not found.
+    """
+    pass
+
+
+class AlreadyExistsError(Exception):
+    """
+    Entity already exists.
+    """
+    pass
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/core/settings.py =====
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+    """
+
+    postgres_host: str  # имя сервиса из docker-compose.yml
+    postgres_port: int
+    postgres_db: str
+    postgres_user: str
+    postgres_password: str
+
+    jwt_secret: str
+    jwt_expire_minutes: int
+    jwt_algorithm: str
+
+    @property
+    def database_url(self) -> str:
+        """
+        Build PostgreSQL connection URL.
+
+        :return: Database connection string
+        """
+        return (
+            f"postgresql+psycopg2://{self.postgres_user}:"
+            f"{self.postgres_password}@{self.postgres_host}:"
+            f"{self.postgres_port}/{self.postgres_db}"
+        )
+
+    model_config = SettingsConfigDict(env_file=".env")
+
+
+settings = Settings()  # type: ignore
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/dependencies/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/dependencies/db.py =====
+
+from typing import Generator
+
+from sqlalchemy.orm import Session
+from ..core.database import SessionLocal
+
+
+# Определяем зависимость, через которую объект сессии БД будет передаваться в функции обработки
+def get_db() -> Generator[Session, None, None]:
+    """
+    Provide a database session.
+
+    :yield: SQLAlchemy Session object
+    """
+    # Создаем объект сессии БД
+    with SessionLocal() as db:
+        try:
+            yield db
+        finally:
+            db.close()
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/main.py =====
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from app.core.database import engine
+from app.models import Base
+from app.routers import (
+    note_router,
+    category_router,
+    auth_router,
+    web_router
+)
+from app.web.pages import router as web_pages_router
+
+# Создание таблиц по метаданным моделей (только для разработки),
+# если все необходимые таблицы уже имеются, то метод не создает таблицы заново
+Base.metadata.create_all(bind=engine)  # bind принимает класс, который используется для подключения к БД
+
+app = FastAPI(title="AlgoNotes-API", version="1.0.0")
+
+# Подключение роутеров
+app.include_router(note_router.router)
+app.include_router(category_router.router)
+app.include_router(auth_router.router)
+app.include_router(web_router.router)
+app.include_router(web_pages_router)
+
+# Подключение статических файлов
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/models/__init__.py =====
+
+from .base import Base
+from .category import Category
+from .note import Note
+from .user import User
+
+__all__ = ["Base", "Category", "Note", "User"]
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/models/base.py =====
+
+from sqlalchemy.orm import DeclarativeBase
+
+
+# Создаем базовый класс для моделей
+class Base(DeclarativeBase):
+    """Base class for all models."""
+    pass
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/models/category.py =====
+
+from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import Base
+
+
+# Связь Category -> Note (1:N)
+
+# Модель категории, объекты которой будут храниться в БД
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),  # внешний ключ на столбец id из таблицы "users"
+        nullable=False,
+        index=True
+    )
+
+    user: Mapped["User"] = relationship(  # type: ignore
+        "User",
+        back_populates="categories"  # связь с моделью User через ее атрибут categories
+    )
+
+    notes: Mapped[list["Note"]] = relationship(  # type: ignore
+        "Note",
+        back_populates="category",  # связь с моделью Note через ее атрибут category
+        cascade="all, delete-orphan"
+    )
+
+# Примечание:
+# Параметр back_populates представляет атрибут связанной модели, с которой будет сопоставляться текущая модель
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/models/note.py =====
+
+from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy.orm import relationship, mapped_column, Mapped
+
+from .base import Base
+
+
+# Связь Category -> Note (1:N)
+
+# Модель заметки, объекты которой будут храниться в БД
+class Note(Base):
+    __tablename__ = "notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(String, nullable=False)
+
+    category_id: Mapped[int] = mapped_column(
+        ForeignKey("categories.id"),  # внешний ключ на столбец id из таблицы "categories"
+        nullable=False,
+        index=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),  # внешний ключ на столбец id из таблицы "users"
+        nullable=False,
+        index=True
+    )
+
+    category: Mapped["Category"] = relationship(  # type: ignore
+        "Category",
+        back_populates="notes"  # связь с моделью Category через ее атрибут notes
+    )
+
+    user: Mapped["User"] = relationship(  # type: ignore
+        "User",
+        back_populates="notes"  # связь с моделью User через ее атрибут notes
+    )
+
+# Примечание:
+# Параметр back_populates представляет атрибут связанной модели, с которой будет сопоставляться текущая модель
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/models/user.py =====
+
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import Base
+
+
+# Связь User -> Category (1:N)
+# Связь User -> Note (1:N)
+
+# Модель пользователя, объекты которой будут храниться в БД
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+
+    categories: Mapped[list["Category"]] = relationship(  # type: ignore
+        "Category",
+        back_populates="user",  # связь с моделью Category через ее атрибут category
+        cascade="all, delete-orphan"
+    )
+
+    notes: Mapped[list["Note"]] = relationship(  # type: ignore
+        "Note",
+        back_populates="user",  # связь с моделью Note через ее атрибут user
+        cascade="all, delete-orphan"
+    )
+
+# Примечание:
+# Параметр back_populates представляет атрибут связанной модели, с которой будет сопоставляться текущая модель
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/repositories/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/repositories/category_repository.py =====
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..models import Category
+
+
+def get_all_categories(db: Session) -> list[Category]:
+    """
+    Retrieve all categories ordered by ID.
+
+    :param db: Database session
+    :return: List of Category objects
+    """
+    stmt = select(Category).order_by(Category.id)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def get_all_categories_by_user(db: Session, user_id: int) -> list[Category]:
+    """
+    Retrieve all categories for a specific user.
+
+    :param db: Database session
+    :param user_id: User ID
+    :return: List of Category objects
+    """
+    stmt = (
+        select(Category)
+        .where(Category.user_id == user_id)
+        .order_by(Category.id)
+    )
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def get_category_by_id(db: Session, category_id: int) -> Category | None:
+    """
+    Get category by its ID.
+
+    :param db: Database session
+    :param category_id: Category ID
+    :return: Category object or None
+    """
+    stmt = select(Category).where(Category.id == category_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+def get_category_by_name_for_user(
+    db: Session,
+    name: str,
+    user_id: int
+) -> Category | None:
+    """
+    Get category by name for specific user.
+
+    :param db: Database session
+    :param name: Category name
+    :param user_id: User ID
+    :return: Category object or None
+    """
+    stmt = select(Category).where(
+        Category.name == name,
+        Category.user_id == user_id
+    )
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+def create_category(db: Session, category: Category) -> Category:
+    """
+    Add a new category to the session and flush changes.
+
+    :param db: Database session
+    :param category: Category object
+    :return: Category object (not committed)
+    """
+    db.add(category)
+    db.flush()
+    return category
+
+
+def update_category(db: Session, category: Category) -> Category:
+    """
+    Flush updated category to the database.
+
+    :param db: Database session
+    :param category: Category object
+    :return: Updated Category object
+    """
+    db.flush()
+    return category
+
+
+def delete_category(db: Session, category: Category) -> None:
+    """
+    Delete category from session.
+
+    :param db: Database session
+    :param category: Category object
+    :return: None
+    """
+    db.delete(category)
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/repositories/note_repository.py =====
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..models import Note
+
+
+def get_all_notes(db: Session) -> list[Note]:
+    """
+    Retrieve all notes ordered by ID.
+
+    :param db: Database session
+    :return: List of Note objects
+    """
+    stmt = select(Note).order_by(Note.id)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def get_all_notes_by_user(db: Session, user_id: int) -> list[Note]:
+    """
+    Retrieve all notes for a specific user.
+
+    :param db: Database session
+    :param user_id: User ID
+    :return: List of Note objects
+    """
+    stmt = (
+        select(Note)
+        .where(Note.user_id == user_id)
+        .order_by(Note.id)
+    )
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def get_note_by_id(db: Session, note_id: int) -> Note | None:
+    """
+    Get note by its ID.
+
+    :param db: Database session
+    :param note_id: Note ID
+    :return: Note object or None
+    """
+    stmt = select(Note).where(Note.id == note_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+def get_notes_by_category_id(db: Session, category_id: int) -> list[Note]:
+    """
+    Retrieve all notes for a specific category.
+
+    :param db: Database session
+    :param category_id: Category ID
+    :return: List of Note objects
+    """
+    stmt = select(Note).where(Note.category_id == category_id).order_by(Note.id)
+    result = db.execute(stmt)
+    return result.scalars().all()  # type: ignore
+
+
+def create_note(db: Session, note: Note) -> Note:
+    """
+    Add a new note to the session and flush changes.
+
+    :param db: Database session
+    :param note: Note object
+    :return: Note object (not committed)
+    """
+    db.add(note)
+    db.flush()
+    return note
+
+
+def update_note(db: Session, note: Note) -> Note:
+    """
+    Flush updated note to the database.
+
+    :param db: Database session
+    :param note: Note object
+    :return: Updated Note object
+    """
+    db.flush()
+    return note
+
+
+def delete_note(db: Session, note: Note) -> None:
+    """
+    Delete note from session.
+
+    :param db: Database session
+    :param note: Note object
+    :return: None
+    """
+    db.delete(note)
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/repositories/user_repository.py =====
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.user import User
+
+
+def get_user_by_username(db: Session, username: str) -> User | None:
+    """
+    Get user by username.
+
+    :param db: Database session
+    :param username: Username
+    :return: User object or None
+    """
+    stmt = select(User).where(User.username == username)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    """
+    Get user by ID.
+
+    :param db: Database session
+    :param user_id: User ID
+    :return: User object or None
+    """
+    stmt = select(User).where(User.id == user_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+def create_user(db: Session, user: User) -> User:
+    """
+    Create new user (not committed).
+
+    :param db: Database session
+    :param user: User object
+    :return: Created user
+    """
+    db.add(user)
+    db.flush()
+    return user
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/routers/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/routers/auth_router.py =====
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.dependencies.db import get_db
+from app.schemas.user import UserCreate, UserLogin, Token, UserRead
+from app.services.auth_service import (
+    register_user_service,
+    login_user_service
+)
+from app.core.exceptions import AlreadyExistsError, NotFoundError
+
+router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+@router.post(
+    "/register",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED
+)
+def register(
+        data: UserCreate,
+        db: Session = Depends(get_db)
+):
+    """
+    Register a new user.
+
+    Creates a user account and returns public user data
+    (without password and without JWT token).
+
+    :param data: UserCreate schema
+    :param db: Database session
+    :return: UserRead schema
+    """
+    try:
+        return register_user_service(data, db)
+    except AlreadyExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
+
+
+@router.post(
+    "/login",
+    response_model=Token
+)
+def login(
+        data: UserLogin,
+        db: Session = Depends(get_db)
+):
+    """
+    Authenticate user and return JWT token.
+
+    :param data: UserLogin schema
+    :param db: Database session
+    :return: Token schema (access_token + token_type)
+    """
+    try:
+        return login_user_service(data, db)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/routers/category_router.py =====
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.dependencies.db import get_db
+from app.auth.dependencies import get_current_user
+from app.models.user import User
+
+from app.schemas.category import (
+    CategoryCreate,
+    CategoryRead,
+    CategoryUpdate,
+    CategoryPatch
+)
+
+from app.services.category_service import (
+    get_all_categories_service,
+    get_category_by_id_service,
+    create_category_service,
+    update_category_service,
+    patch_category_service,
+    delete_category_service,
+)
+
+from app.core.exceptions import NotFoundError, AlreadyExistsError
+
+router = APIRouter(prefix="/categories", tags=["Categories"])
+
+
+@router.get("/", response_model=list[CategoryRead])
+def get_all_categories(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all categories for current authenticated user.
+    """
+    try:
+        return get_all_categories_service(db, user)
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
+
+
+@router.get("/{category_id}", response_model=CategoryRead)
+def get_category_by_id(
+    category_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get category by ID (only if belongs to current user).
+    """
+    try:
+        return get_category_by_id_service(category_id, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(
+    data: CategoryCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Create category for current user.
+    """
+    try:
+        return create_category_service(data, db, user)
+    except AlreadyExistsError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.put("/{category_id}", response_model=CategoryRead)
+def update_category(
+    category_id: int,
+    data: CategoryUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Update category (only if belongs to current user).
+    """
+    try:
+        return update_category_service(category_id, data, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.patch("/{category_id}", response_model=CategoryRead)
+def patch_category(
+    category_id: int,
+    data: CategoryPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Partially update category (only if belongs to current user).
+    """
+    try:
+        return patch_category_service(category_id, data, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Delete category (only if belongs to current user).
+    """
+    try:
+        delete_category_service(category_id, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/routers/note_router.py =====
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.dependencies.db import get_db
+from app.auth.dependencies import get_current_user
+from app.models.user import User
+
+from app.schemas.note import (
+    NoteCreate,
+    NoteRead,
+    NoteUpdate,
+    NotePatch
+)
+
+from app.services.note_service import (
+    get_all_notes_service,
+    get_notes_by_category_id_service,
+    get_note_by_id_service,
+    create_note_service,
+    update_note_service,
+    patch_note_service,
+    delete_note_service,
+)
+
+from app.core.exceptions import NotFoundError
+
+router = APIRouter(prefix="/notes", tags=["Notes"])
+
+
+@router.get("/", response_model=list[NoteRead])
+def get_all_notes(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all notes for current authenticated user.
+    """
+    try:
+        return get_all_notes_service(db, user)
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
+
+
+@router.get("/category/{category_id}", response_model=list[NoteRead])
+def get_notes_by_category_id(
+    category_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all notes for a specific category (only user-owned).
+    """
+    try:
+        return get_notes_by_category_id_service(category_id, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/{note_id}", response_model=NoteRead)
+def get_note_by_id(
+    note_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get note by ID (only if belongs to current user).
+    """
+    try:
+        return get_note_by_id_service(note_id, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
+def create_note(
+    data: NoteCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Create new note for current user.
+    """
+    try:
+        return create_note_service(data, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.put("/{note_id}", response_model=NoteRead)
+def update_note(
+    note_id: int,
+    data: NoteUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Update note (only if belongs to current user).
+    """
+    try:
+        return update_note_service(note_id, data, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.patch("/{note_id}", response_model=NoteRead)
+def patch_note(
+    note_id: int,
+    data: NotePatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Partially update note (only if belongs to current user).
+    """
+    try:
+        return patch_note_service(note_id, data, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_note(
+    note_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Delete note (only if belongs to current user).
+    """
+    try:
+        delete_note_service(note_id, db, user)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/routers/web_router.py =====
+
+from fastapi import APIRouter, Request, Depends, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from jose import jwt, JWTError
+
+from app.dependencies.db import get_db
+from app.schemas.user import UserCreate, UserLogin
+from app.services.auth_service import (
+    register_user_service,
+    login_user_service
+)
+from app.core.exceptions import (
+    AlreadyExistsError,
+    NotFoundError
+)
+from app.core.settings import settings
+
+router = APIRouter(tags=["Web"])
+
+templates = Jinja2Templates(directory="app/templates")
+
+
+def get_current_username_from_cookie(request: Request) -> str | None:
+    """
+    Read JWT token from cookie and extract username.
+    """
+    token = request.cookies.get("access_token")
+
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm]
+        )
+
+        return payload.get("sub")
+
+    except JWTError:
+        return None
+
+
+@router.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request
+        }
+    )
+
+
+@router.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    return templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+            "error": None
+        }
+    )
+
+
+@router.post("/register", response_class=HTMLResponse)
+def register_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        register_user_service(
+            UserCreate(username=username, password=password),
+            db
+        )
+
+        return RedirectResponse(
+            url="/login",
+            status_code=303
+        )
+
+    except AlreadyExistsError as e:
+        return templates.TemplateResponse(
+            "register.html",
+            {
+                "request": request,
+                "error": str(e)
+            }
+        )
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "error": None
+        }
+    )
+
+
+@router.post("/login")
+def login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        token_data = login_user_service(
+            UserLogin(username=username, password=password),
+            db
+        )
+
+        response = RedirectResponse(
+            url="/dashboard",
+            status_code=303
+        )
+
+        response.set_cookie(
+            key="access_token",
+            value=token_data["access_token"],
+            httponly=True
+        )
+
+        return response
+
+    except NotFoundError as e:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": str(e)
+            }
+        )
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    username = get_current_username_from_cookie(request)
+
+    if not username:
+        return RedirectResponse(
+            url="/login",
+            status_code=303
+        )
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "username": username
+        }
+    )
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/schemas/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/schemas/category.py =====
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CategoryBase(BaseModel):
+    """
+    Base schema for Category.
+    """
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Category name"
+    )
+
+    model_config = ConfigDict(
+        from_attributes=True  # ORM mode (Pydantic преобразует SQLAlchemy‑объекты в JSON‑совместимые словари)
+    )
+
+
+class CategoryCreate(CategoryBase):
+    """
+    Schema for creating a category.
+    Inherits all fields from CategoryBase.
+    """
+    pass
+
+
+class CategoryUpdate(CategoryBase):
+    """
+    Schema for updating a category.
+    Requires all fields to be present.
+    """
+    pass
+
+
+class CategoryPatch(BaseModel):
+    """
+    Schema for partial updating a category.
+    All fields are optional.
+    """
+    name: str | None = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Optional category name"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryRead(CategoryBase):
+    """
+    Schema for reading category data.
+    """
+    id: int
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/schemas/note.py =====
+
+from pydantic import BaseModel, ConfigDict, Field
+from .category import CategoryRead
+
+
+class NoteBase(BaseModel):
+    """
+    Base schema for Note.
+    """
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Note title"
+    )
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Note content"
+    )
+
+    model_config = ConfigDict(
+        from_attributes=True  # ORM mode (Pydantic преобразует SQLAlchemy‑объекты в JSON‑совместимые словари)
+    )
+
+
+class NoteCreate(NoteBase):
+    """
+    Schema for creating a note.
+    Requires all fields from NoteBase plus category_id.
+    """
+    category_id: int = Field(
+        ...,
+        ge=1,
+        description="Category ID"
+    )
+
+
+class NoteUpdate(NoteCreate):
+    """
+    Schema for updating a note.
+    Requires all fields to be present.
+    Inherits from NoteCreate to avoid duplication.
+    """
+    pass
+
+
+class NotePatch(BaseModel):
+    """
+    Schema for partial updating a note.
+    All fields are optional.
+    """
+    title: str | None = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Optional note title"
+    )
+    content: str | None = Field(
+        None,
+        min_length=1,
+        description="Optional note content"
+    )
+    category_id: int | None = Field(
+        None,
+        ge=1,
+        description="Optional category ID"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NoteRead(NoteBase):
+    """
+    Schema for reading note data.
+    """
+    id: int
+    category_id: int
+    category: CategoryRead | None = None  # вложенная модель для связи c моделью категорий
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/schemas/user.py =====
+
+from pydantic import BaseModel, ConfigDict
+
+
+class UserBase(BaseModel):
+    """
+    Base schema for User.
+
+    Contains shared fields used across user schemas.
+    """
+    username: str
+
+
+class UserCreate(UserBase):
+    """
+    Schema for user registration.
+
+    Extends UserBase with password field.
+    """
+    password: str
+
+
+class UserLogin(UserBase):
+    """
+    Schema for user authentication.
+
+    Used to log in and receive JWT token.
+    """
+    password: str
+
+
+class UserRead(UserBase):
+    """
+    Schema for user authentication.
+
+    Used to log in and receive JWT token.
+    """
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    """
+    Schema for JWT token response.
+
+    Returned after successful authentication.
+    """
+    access_token: str
+    token_type: str = "bearer"
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/services/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/services/auth_service.py =====
+
+from sqlalchemy.orm import Session
+
+from app.models.user import User
+from app.schemas.user import UserCreate, UserLogin
+from app.repositories.user_repository import (
+    get_user_by_username,
+    create_user
+)
+from app.auth.security import (
+    hash_password,
+    verify_password,
+    create_access_token
+)
+from app.core.exceptions import AlreadyExistsError, NotFoundError
+
+
+def register_user_service(data: UserCreate, db: Session) -> User:
+    """
+    Register a new user.
+
+    Creates a new user in the database after validating that
+    the username is not already taken.
+
+    :param data: UserCreate schema containing username and password
+    :param db: Database session
+    :return: Created User ORM object
+    :raises AlreadyExistsError: If username already exists
+    """
+    # Проверяем, существует ли пользователь
+    if get_user_by_username(db, data.username):
+        raise AlreadyExistsError("User already exists")
+
+    # Создаем пользователя с хешированным паролем
+    user = User(
+        username=data.username,
+        hashed_password=hash_password(data.password)
+    )
+
+    try:
+        create_user(db, user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception:
+        db.rollback()
+        raise
+
+
+def login_user_service(data: UserLogin, db: Session) -> dict:
+    """
+    Authenticate user and return JWT access token.
+
+    Validates user credentials and returns a signed JWT token.
+
+    :param data: UserLogin schema containing credentials
+    :param db: Database session
+    :return: Dictionary with access token and token type
+    :raises NotFoundError: If credentials are invalid
+    """
+    # Получаем пользователя по username
+    user = get_user_by_username(db, data.username)
+
+    if not user:
+        raise NotFoundError("Invalid credentials")
+
+    # Проверяем пароль
+    if not verify_password(data.password, user.hashed_password):
+        raise NotFoundError("Invalid credentials")
+
+    # Генерируем JWT токен
+    token = create_access_token({"sub": user.username})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/services/category_service.py =====
+
+from sqlalchemy.orm import Session
+
+from ..models import Category, User
+from ..schemas.category import CategoryCreate, CategoryUpdate, CategoryPatch
+from ..core.exceptions import NotFoundError, AlreadyExistsError
+from ..utils.common import apply_updates
+
+from ..repositories.category_repository import (
+    get_all_categories_by_user,
+    get_category_by_id,
+    get_category_by_name_for_user,
+    create_category,
+    update_category,
+    delete_category,
+)
+
+
+def get_all_categories_service(db: Session, user: User) -> list[Category]:
+    """
+    Retrieve all categories belonging to current user.
+
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: List of Category objects
+    """
+    return get_all_categories_by_user(db, user.id)
+
+
+def get_category_by_id_service(category_id: int, db: Session, user: User) -> Category:
+    """
+    Retrieve category by ID.
+
+    :param category_id: Category ID
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Category object
+    """
+    category = get_category_by_id(db, category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    return category
+
+
+def create_category_service(data: CategoryCreate, db: Session, user: User) -> Category:
+    """
+    Create a new category.
+
+    :param data: CategoryCreate schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Created Category object
+    """
+    if get_category_by_name_for_user(db, data.name, user.id):
+        raise AlreadyExistsError("Category already exists")
+
+    category = Category(
+        **data.model_dump(),
+        user_id=user.id
+    )
+
+    try:
+        create_category(db, category)
+        db.commit()
+        db.refresh(category)
+        return category
+    except Exception:
+        db.rollback()
+        raise
+
+
+def update_category_service(category_id: int, data: CategoryUpdate, db: Session, user: User) -> Category:
+    """
+    Update category.
+
+    :param category_id: Category ID
+    :param data: CategoryUpdate schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Updated Category object
+    """
+    category = get_category_by_id(db, category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    try:
+        category.name = data.name
+
+        update_category(db, category)
+        db.commit()
+        db.refresh(category)
+
+        return category
+    except Exception:
+        db.rollback()
+        raise
+
+
+def patch_category_service(category_id: int, data: CategoryPatch, db: Session, user: User) -> Category:
+    """
+    Partially update category.
+
+    :param category_id: Category ID
+    :param data: CategoryPatch schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Updated Category object
+    """
+    category = get_category_by_id(db, category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    try:
+        apply_updates(category, data.model_dump(exclude_unset=True))
+        update_category(db, category)
+        db.commit()
+        db.refresh(category)
+        return category
+    except Exception:
+        db.rollback()
+        raise
+
+
+def delete_category_service(category_id: int, db: Session, user: User) -> None:
+    """
+    Delete category.
+
+    :param category_id: Category ID
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: None
+    """
+    category = get_category_by_id(db, category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    try:
+        delete_category(db, category)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/services/note_service.py =====
+
+from sqlalchemy.orm import Session
+
+from ..models import Note, User
+from ..schemas.note import NoteCreate, NoteUpdate, NotePatch
+
+from ..core.exceptions import NotFoundError
+from ..utils.common import apply_updates
+
+from ..repositories.note_repository import (
+    get_all_notes_by_user,
+    get_note_by_id,
+    get_notes_by_category_id,
+    create_note,
+    update_note,
+    delete_note,
+)
+
+from ..repositories.category_repository import get_category_by_id
+
+
+def get_all_notes_service(db: Session, user: User) -> list[Note]:
+    """
+    Retrieve all notes belonging to current user.
+
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: List of Note objects
+    """
+    return get_all_notes_by_user(db, user.id)
+
+
+def get_notes_by_category_id_service(category_id: int, db: Session, user: User) -> list[Note]:
+    """
+    Retrieve notes by category ID (only for current user).
+
+    :param category_id: Category ID
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: List of Note objects
+    """
+    category = get_category_by_id(db, category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    return get_notes_by_category_id(db, category_id)
+
+
+def get_note_by_id_service(note_id: int, db: Session, user: User) -> Note:
+    """
+    Retrieve single note by ID.
+
+    :param note_id: Note ID
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Note object
+    """
+    note = get_note_by_id(db, note_id)
+
+    if note is None or note.user_id != user.id:
+        raise NotFoundError("Note not found")
+
+    return note
+
+
+def create_note_service(data: NoteCreate, db: Session, user: User) -> Note:
+    """
+    Create new note for current user.
+
+    :param data: NoteCreate schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Created Note object
+    """
+    category = get_category_by_id(db, data.category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    note = Note(
+        **data.model_dump(),
+        user_id=user.id
+    )
+
+    try:
+        create_note(db, note)
+        db.commit()
+        db.refresh(note)
+        return note
+    except Exception:
+        db.rollback()
+        raise
+
+
+def update_note_service(note_id: int, data: NoteUpdate, db: Session, user: User) -> Note:
+    """
+    Fully update note.
+
+    :param note_id: Note ID
+    :param data: NoteUpdate schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Updated Note object
+    """
+    note = get_note_by_id(db, note_id)
+
+    if note is None or note.user_id != user.id:
+        raise NotFoundError("Note not found")
+
+    category = get_category_by_id(db, data.category_id)
+
+    if category is None or category.user_id != user.id:
+        raise NotFoundError("Category not found")
+
+    try:
+        note.title = data.title
+        note.content = data.content
+        note.category_id = data.category_id
+
+        update_note(db, note)
+        db.commit()
+        db.refresh(note)
+        return note
+    except Exception:
+        db.rollback()
+        raise
+
+
+def patch_note_service(note_id: int, data: NotePatch, db: Session, user: User) -> Note:
+    """
+    Partially update note.
+
+    :param note_id: Note ID
+    :param data: NotePatch schema
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: Updated Note object
+    """
+    note = get_note_by_id(db, note_id)
+
+    if note is None or note.user_id != user.id:
+        raise NotFoundError("Note not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "category_id" in update_data:
+        category = get_category_by_id(db, update_data["category_id"])
+
+        if category is None or category.user_id != user.id:
+            raise NotFoundError("Category not found")
+
+    try:
+        apply_updates(note, update_data)
+        update_note(db, note)
+        db.commit()
+        db.refresh(note)
+        return note
+    except Exception:
+        db.rollback()
+        raise
+
+
+def delete_note_service(note_id: int, db: Session, user: User) -> None:
+    """
+    Delete note.
+
+    :param note_id: Note ID
+    :param db: Database session
+    :param user: Current authenticated user
+    :return: None
+    """
+    note = get_note_by_id(db, note_id)
+
+    if note is None or note.user_id != user.id:
+        raise NotFoundError("Note not found")
+
+    try:
+        delete_note(db, note)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/static/style.css =====
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f8f9fa;
+    color: #222;
+}
+
+.container {
+    width: 90%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.header {
+    background: #111827;
+    color: white;
+    padding: 15px 0;
+    margin-bottom: 30px;
+}
+
+.header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    margin: 0;
+    font-size: 24px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    margin-left: 15px;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+main {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+}
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/templates/base.html =====
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlgoNotes</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        nav {
+            margin-bottom: 20px;
+        }
+
+        nav a {
+            margin-right: 12px;
+            text-decoration: none;
+        }
+
+        .user {
+            float: right;
+            color: #555;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            padding: 14px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .danger {
+            color: crimson;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a href="/">Home</a>
+    <a href="/categories">Categories</a>
+    <a href="/notes">Notes</a>
+
+    {% if username %}
+        <span class="user">👤 {{ username }}</span>
+        <a href="/logout">Logout</a>
+    {% else %}
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    {% endif %}
+</nav>
+
+<hr>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/templates/dashboard.html =====
+
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Личный кабинет</h2>
+
+<p>Привет, <strong>{{ username }}</strong> 👋</p>
+
+<p>Ты успешно вошёл в систему.</p>
+{% endblock %}
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/templates/index.html =====
+
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<h2>Добро пожаловать в AlgoNotes 👋</h2>
+<p>Сервис для хранения заметок по алгоритмам.</p>
+{% endblock %}
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/templates/login.html =====
+
+{% extends "base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<h2>Вход</h2>
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+
+    <p>
+        <input type="text" name="username" placeholder="Username" required>
+    </p>
+
+    <p>
+        <input type="password" name="password" placeholder="Password" required>
+    </p>
+
+    <button type="submit">Войти</button>
+
+</form>
+{% endblock %}
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/templates/register.html =====
+
+{% extends "base.html" %}
+
+{% block title %}Регистрация{% endblock %}
+
+{% block content %}
+<h2>Регистрация</h2>
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+    <p>
+        <input type="text" name="username" placeholder="Username" required>
+    </p>
+
+    <p>
+        <input type="password" name="password" placeholder="Password" required>
+    </p>
+
+    <button type="submit">Создать аккаунт</button>
+</form>
+{% endblock %}
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/utils/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/utils/common.py =====
+
+def apply_updates(instance: object, data: dict) -> None:
+    """
+    Apply partial updates to SQLAlchemy model instance.
+
+    :param instance: SQLAlchemy model instance
+    :param data: dict with fields to update
+    """
+    for field, value in data.items():
+        if hasattr(instance, field):
+            setattr(instance, field, value)
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/utils/markdown.py =====
+
+import markdown
+
+
+def render_markdown(content: str) -> str:
+    """
+    Convert Markdown content to HTML.
+
+    :param content: Markdown text
+    :return: HTML string
+    """
+    return markdown.markdown(content)
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/web/__init__.py =====
+
+
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/web/dependencies.py =====
+
+from fastapi import Request
+from jose import jwt, JWTError
+
+from app.core.settings import settings
+
+
+def get_current_username_from_cookie(request: Request) -> str | None:
+    """
+    Return username from JWT cookie.
+    If token missing/invalid -> None
+    """
+    token = request.cookies.get("token")
+
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm]
+        )
+        return payload.get("sub")
+
+    except JWTError:
+        return None
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/app/web/pages.py =====
+
+from fastapi import APIRouter, Request
+from fastapi.templating import Jinja2Templates
+
+from app.web.dependencies import get_current_username_from_cookie
+
+router = APIRouter(tags=["Web Pages"])
+templates = Jinja2Templates(directory="templates")
+
+
+@router.get("/")
+def home(request: Request):
+    username = get_current_username_from_cookie(request)
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "username": username
+        }
+    )
+
+# ===== FILE: /Users/denisbaranov/cs_projects/2s/algo-notes/docker-compose.yml =====
+
+services:
+  backend:
+    image: algo_notes_backend
+    build:
+      context: .
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: algo_notes_db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:

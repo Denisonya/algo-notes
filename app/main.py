@@ -3,12 +3,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.database import engine
 from app.models import Base
+
 from app.routers import (
     note_router,
     category_router,
-    auth_router,
-    web_router
+    auth_router
 )
+
+from app.web.router import router as web_router
 
 # Создание таблиц по метаданным моделей (только для разработки),
 # если все необходимые таблицы уже имеются, то метод не создает таблицы заново
@@ -16,11 +18,14 @@ Base.metadata.create_all(bind=engine)  # bind принимает класс, к�
 
 app = FastAPI(title="AlgoNotes-API", version="1.0.0")
 
-# Подключение роутеров
+# Подключение роутеров API
 app.include_router(note_router.router)
 app.include_router(category_router.router)
 app.include_router(auth_router.router)
-app.include_router(web_router.router)
+
+# Подключение роутеров Web pages
+app.include_router(web_router)
+
 
 # Подключение статических файлов
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

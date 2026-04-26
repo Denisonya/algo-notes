@@ -17,7 +17,6 @@ from app.core.exceptions import (
 from app.core.settings import settings
 
 router = APIRouter(tags=["Web"])
-
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -36,7 +35,6 @@ def get_current_username_from_cookie(request: Request) -> str | None:
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm]
         )
-
         return payload.get("sub")
 
     except JWTError:
@@ -45,21 +43,27 @@ def get_current_username_from_cookie(request: Request) -> str | None:
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
+    username = get_current_username_from_cookie(request)
+
     return templates.TemplateResponse(
         "index.html",
         {
-            "request": request
+            "request": request,
+            "username": username
         }
     )
 
 
 @router.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
+    username = get_current_username_from_cookie(request)
+
     return templates.TemplateResponse(
         "register.html",
         {
             "request": request,
-            "error": None
+            "error": None,
+            "username": username
         }
     )
 
@@ -87,18 +91,22 @@ def register_submit(
             "register.html",
             {
                 "request": request,
-                "error": str(e)
+                "error": str(e),
+                "username": None
             }
         )
 
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
+    username = get_current_username_from_cookie(request)
+
     return templates.TemplateResponse(
         "login.html",
         {
             "request": request,
-            "error": None
+            "error": None,
+            "username": username
         }
     )
 
@@ -134,7 +142,8 @@ def login_submit(
             "login.html",
             {
                 "request": request,
-                "error": str(e)
+                "error": str(e),
+                "username": None
             }
         )
 
@@ -156,3 +165,17 @@ def dashboard(request: Request):
             "username": username
         }
     )
+
+
+@router.get("/logout")
+def logout():
+    """
+    Logout user and remove cookie.
+    """
+    response = RedirectResponse(
+        url="/",
+        status_code=303
+    )
+
+    response.delete_cookie("access_token")
+    return response
