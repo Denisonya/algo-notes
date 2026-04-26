@@ -1,29 +1,63 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}AlgoNotes{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>AlgoNotes</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        nav {
+            margin-bottom: 20px;
+        }
+
+        nav a {
+            margin-right: 12px;
+            text-decoration: none;
+        }
+
+        .user {
+            float: right;
+            color: #555;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            padding: 14px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .danger {
+            color: crimson;
+        }
+    </style>
 </head>
 <body>
 
-<header class="header">
-    <div class="container">
-        <h1 class="logo">AlgoNotes</h1>
+<nav>
+    <a href="/">Home</a>
+    <a href="/categories">Categories</a>
+    <a href="/notes">Notes</a>
 
-        <nav>
-            <a href="/">Главная</a>
-            <a href="/login">Вход</a>
-            <a href="/register">Регистрация</a>
-            <a href="/dashboard">Dashboard</a>
-        </nav>
-    </div>
-</header>
+    {% if username %}
+        <span class="user">👤 {{ username }}</span>
+        <a href="/logout">Logout</a>
+    {% else %}
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    {% endif %}
+</nav>
 
-<main class="container">
-    {% block content %}{% endblock %}
-</main>
+<hr>
+
+{% block content %}{% endblock %}
 
 </body>
 </html>
