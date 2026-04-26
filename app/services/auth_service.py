@@ -18,14 +18,19 @@ def register_user_service(data: UserCreate, db: Session) -> User:
     """
     Register a new user.
 
-    :param data: UserCreate schema
+    Creates a new user in the database after validating that
+    the username is not already taken.
+
+    :param data: UserCreate schema containing username and password
     :param db: Database session
-    :return: Created User object
+    :return: Created User ORM object
     :raises AlreadyExistsError: If username already exists
     """
+    # Проверяем, существует ли пользователь
     if get_user_by_username(db, data.username):
         raise AlreadyExistsError("User already exists")
 
+    # Создаем пользователя с хешированным паролем
     user = User(
         username=data.username,
         hashed_password=hash_password(data.password)
@@ -43,21 +48,26 @@ def register_user_service(data: UserCreate, db: Session) -> User:
 
 def login_user_service(data: UserLogin, db: Session) -> dict:
     """
-    Authenticate user and return JWT token.
+    Authenticate user and return JWT access token.
 
-    :param data: UserLogin schema
+    Validates user credentials and returns a signed JWT token.
+
+    :param data: UserLogin schema containing credentials
     :param db: Database session
     :return: Dictionary with access token and token type
     :raises NotFoundError: If credentials are invalid
     """
+    # Получаем пользователя по username
     user = get_user_by_username(db, data.username)
 
     if not user:
         raise NotFoundError("Invalid credentials")
 
+    # Проверяем пароль
     if not verify_password(data.password, user.hashed_password):
         raise NotFoundError("Invalid credentials")
 
+    # Генерируем JWT токен
     token = create_access_token({"sub": user.username})
 
     return {

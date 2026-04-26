@@ -11,11 +11,12 @@ class Category(Base):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),  # внешний ключ на столбец id из таблицы "users"
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     user: Mapped["User"] = relationship(  # type: ignore
