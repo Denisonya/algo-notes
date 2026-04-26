@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from jose import jwt, JWTError
 
 from app.dependencies.db import get_db
 from app.schemas.user import UserCreate, UserLogin
@@ -13,23 +14,53 @@ from app.core.exceptions import (
     AlreadyExistsError,
     NotFoundError
 )
+from app.core.settings import settings
 
 router = APIRouter(tags=["Web"])
+
 templates = Jinja2Templates(directory="app/templates")
+
+
+def get_current_username_from_cookie(request: Request) -> str | None:
+    """
+    Read JWT token from cookie and extract username.
+    """
+    token = request.cookies.get("access_token")
+
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm]
+        )
+
+        return payload.get("sub")
+
+    except JWTError:
+        return None
 
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request
+        }
+    )
 
-
-# REGISTER
 
 @router.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     return templates.TemplateResponse(
         "register.html",
-        {"request": request, "error": None}
+        {
+            "request": request,
+            "error": None
+        }
     )
 
 
@@ -45,22 +76,30 @@ def register_submit(
             UserCreate(username=username, password=password),
             db
         )
-        return RedirectResponse("/login", status_code=303)
+
+        return RedirectResponse(
+            url="/login",
+            status_code=303
+        )
 
     except AlreadyExistsError as e:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": str(e)}
+            {
+                "request": request,
+                "error": str(e)
+            }
         )
 
-
-# LOGIN
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "error": None}
+        {
+            "request": request,
+            "error": None
+        }
     )
 
 
@@ -93,5 +132,27 @@ def login_submit(
     except NotFoundError as e:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": str(e)}
+            {
+                "request": request,
+                "error": str(e)
+            }
         )
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    username = get_current_username_from_cookie(request)
+
+    if not username:
+        return RedirectResponse(
+            url="/login",
+            status_code=303
+        )
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "username": username
+        }
+    )
