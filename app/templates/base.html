@@ -14,9 +14,15 @@
 
         <nav>
             <a href="/">Главная</a>
-            <a href="/login">Вход</a>
-            <a href="/register">Регистрация</a>
-            <a href="/dashboard">Dashboard</a>
+
+            {% if username %}
+                <a href="/dashboard">Dashboard</a>
+                <a href="/logout">Выход</a>
+                <span style="margin-left:15px;">👤 {{ username }}</span>
+            {% else %}
+                <a href="/login">Вход</a>
+                <a href="/register">Регистрация</a>
+            {% endif %}
         </nav>
     </div>
 </header>
