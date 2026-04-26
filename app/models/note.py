@@ -6,7 +6,6 @@ from .base import Base
 
 # Связь Category -> Note (1:N)
 
-
 # Модель заметки, объекты которой будут храниться в БД
 class Note(Base):
     __tablename__ = "notes"
@@ -16,13 +15,23 @@ class Note(Base):
     content: Mapped[str] = mapped_column(String, nullable=False)
 
     category_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("categories.id")  # внешний ключ на столбец id из таблицы "categories"
+        ForeignKey("categories.id"),  # внешний ключ на столбец id из таблицы "categories"
+        nullable=False
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),  # внешний ключ на столбец id из таблицы "users"
+        nullable=False
     )
 
     category: Mapped["Category"] = relationship(  # type: ignore
         "Category",
         back_populates="notes"  # связь с моделью Category через ее атрибут notes
+    )
+
+    user: Mapped["User"] = relationship(  # type: ignore
+        "User",
+        back_populates="notes"  # связь с моделью User через ее атрибут notes
     )
 
 # Примечание:
