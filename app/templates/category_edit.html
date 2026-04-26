@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Редактировать категорию{% endblock %}
+
+{% block content %}
+<h2>Редактировать категорию</h2>
+
+<form method="post">
+    <input name="name" value="{{ category.name }}" required>
+    <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Редактировать заметку{% endblock %}
+
+{% block content %}
+<h2>Редактировать заметку</h2>
+
+<form method="post">
+    <p>
+        <input
+            name="title"
+            value="{{ note.title }}"
+            required
+        >
+    </p>
+
+    <p>
+        <textarea
+            name="content"
+            rows="6"
+            cols="60"
+            required
+        >{{ note.content }}</textarea>
+    </p>
+
+    <p>
+        <select name="category_id">
+            {% for category in categories %}
+            <option
+                value="{{ category.id }}"
+                {% if category.id == note.category_id %}selected{% endif %}
+            >
+                {{ category.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </p>
+
+    <button type="submit">Сохранить</button>
+</form>
+{% endblock %}
