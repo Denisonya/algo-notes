@@ -19,49 +19,73 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 
 @router.get("/", response_model=list[CategoryRead])
 def get_all_categories(db: Session = Depends(get_db)):
+    """
+    Get all categories.
+    """
     try:
         return get_all_categories_service(db)
     except SQLAlchemyError:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
 
 
 @router.get("/{category_id}", response_model=CategoryRead)
 def get_category_by_id(category_id: int, db: Session = Depends(get_db)):
+    """
+    Get category by ID.
+    """
     try:
         return get_category_by_id_service(category_id, db)
     except NotFoundError as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 def create_category(data: CategoryCreate, db: Session = Depends(get_db)):
+    """
+    Create category.
+    """
     try:
         return create_category_service(data, db)
     except AlreadyExistsError as e:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.put("/{category_id}", response_model=CategoryRead)
 def update_category(category_id: int, data: CategoryUpdate, db: Session = Depends(get_db)):
+    """
+    Update category.
+    """
     try:
         return update_category_service(category_id, data, db)
     except NotFoundError as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.patch("/{category_id}", response_model=CategoryRead)
 def patch_category(category_id: int, data: CategoryPatch, db: Session = Depends(get_db)):
+    """
+    Partially update category.
+    """
     try:
         return patch_category_service(category_id, data, db)
     except NotFoundError as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: int, db: Session = Depends(get_db)):
+    """
+    Delete category.
+    """
     try:
         delete_category_service(category_id, db)
     except NotFoundError as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except SQLAlchemyError:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error"
+        )
