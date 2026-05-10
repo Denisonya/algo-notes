@@ -1,3 +1,10 @@
+---
+name: Task
+about: Issue Template
+title: "[TASK] - "
+---
+
+
 ## 🎯 Цель
 
 Какой результат должен быть достигнут
