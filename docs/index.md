@@ -12,6 +12,8 @@
 
 **Algo Notes** — сервис для хранения, структурирования и изучения заметок по алгоритмам.
 
+![Главная страница](images/home.png)
+
 ## 📑 Содержание
 
 * [Возможности](#-возможности)
@@ -28,7 +30,6 @@
 * [Будущие улучшения](#-будущие-улучшения)
 * [GitFlow](#-gitflow)
 * [Лицензия](#-лицензия)
-* [Контакты](#-контакты)
 
 ---
 
@@ -308,6 +309,18 @@ docker compose up --build
 | POST  | `/notes/{note_id}/edit`            | Обновление заметки через форму         |
 | POST  | `/notes/{note_id}/delete`          | Удаление заметки через форму           |
 
+### Скриншоты интерфейса:
+* Регистрация
+![Регистрация](images/register.png)
+* Вход
+![Вход](images/login.png)
+* Личный кабинет
+![Личный кабинет](images/dashboard.png)
+* Категории
+![Категории](images/categories.png)
+* Заметки
+![Заметки](images/notes.png)
+
 ---
 
 ## 📌 REST API
@@ -341,6 +354,9 @@ docker compose up --build
 | PUT    | `/notes/{note_id}`              | Полностью обновить заметку             | Требуется   |
 | PATCH  | `/notes/{note_id}`              | Частично обновить заметку              | Требуется   |
 | DELETE | `/notes/{note_id}`              | Удалить заметку                        | Требуется   |
+
+### Swagger UI с эндпоинтами API:
+![Swagger UI](images/swagger.png)
 
 ---
 
@@ -408,6 +424,9 @@ Pipeline выполняет:
 6. Запуск тестов внутри backend-контейнера.
 7. Вывод логов при ошибке.
 8. Очистку контейнеров и volumes.
+
+### Успешный GitHub Actions workflow:
+![CI/CD](images/github-actions.png)
 
 ---
 
@@ -485,7 +504,7 @@ docker compose exec backend sh
 
 ## 📄 Лицензия
 
-Проект лицензирован под [MIT License](LICENSE).
+Проект лицензирован под [MIT License](https://github.com/Denisonya/algo-notes/blob/main/LICENSE).
 
 ---
 
